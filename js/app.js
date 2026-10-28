@@ -336,17 +336,18 @@
     const L = curLevel();
     if (S.prefs.sound) (L.brk ? SND.brk : SND.level)();
     vibrate(L.brk ? [400, 200, 400] : [300, 120, 300, 120, 600]);
+    // 화면을 가리지 않는 배너: 터치는 아래 화면으로 그대로 전달되고 6초 뒤 저절로 사라진다
     const nx = nextBlindLevel();
+    $$('.announce').forEach((x) => x.remove());
     const el = document.createElement('div');
     el.className = 'announce' + (L.brk ? ' brk' : '');
-    el.innerHTML = `<div class="announce-inner">
-      <div class="a-k">${L.brk ? 'BREAK' : 'LEVEL ' + levelNo(S.clock.level)}</div>
-      <div class="a-v">${L.brk ? '휴식 ' + L.min + '분' : fmt(L.sb) + ' / ' + fmt(L.bb)}</div>
-      <div class="a-s">${L.brk ? (nx ? `휴식 후 ${fmt(nx.sb)} / ${fmt(nx.bb)}` : '잠시 쉬어가요') : '블라인드가 올랐어요 · 다음 핸드부터 적용'}</div>
-      <div class="a-tap">화면을 누르면 닫혀요</div></div>`;
-    el.addEventListener('click', () => el.remove());
+    el.setAttribute('role', 'status');
+    el.innerHTML = `<div class="announce-card">
+      <div class="a-text"><div class="a-k">${L.brk ? 'BREAK' : 'LEVEL ' + levelNo(S.clock.level)}</div>
+        <div class="a-s">${L.brk ? (nx ? `휴식 후 ${fmt(nx.sb)} / ${fmt(nx.bb)}` : '잠시 쉬어가요') : '블라인드 업 · 다음 핸드부터'}</div></div>
+      <div class="a-v">${L.brk ? '휴식 ' + L.min + '분' : fmt(L.sb) + ' / ' + fmt(L.bb)}</div></div>`;
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 7000);
+    setTimeout(() => el.remove(), 6200);
   }
 
   // ---------------------------------------------------------------- 모달 / 토스트
