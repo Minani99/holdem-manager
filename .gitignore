@@ -1,0 +1,3 @@
+dist/web/
+.claude/
+node_modules/
