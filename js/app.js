@@ -436,6 +436,8 @@
     const key = S.started ? S.screen : 'setup';
     if (!S.started) {
       app.innerHTML = `<div class="shell"><main class="main">${renderSetup()}</main></div>`;
+    } else if (UI.focus) {
+      app.innerHTML = renderFocus();
     } else {
       app.innerHTML = `<div class="shell">${renderNav()}<main class="main ${key === 'table' ? 'fixed' : ''}">${SCREENS[key]()}</main></div>`;
     }
@@ -617,7 +619,7 @@
     return `<div class="clock-screen">
       <section class="clock-main ${brk ? 'is-break' : ''}">
         <div class="clock-top"><span class="game-name">${esc(S.game.name || '토너먼트')}</span>
-          <button class="btn btn-icon sm btn-ghost" data-action="fullscreen" aria-label="전체 화면">${icon('full')}</button></div>
+          <button class="btn btn-sm btn-ghost" data-action="focus-on">${icon('full')} 타이머만 보기</button></div>
         ${!c.running ? '<div class="paused-badge">일시정지</div>' : ''}
         ${brk ? `<div class="break-ico">${icon('coffee')}</div>` : ''}
         <div class="lvl-label">${brk ? 'BREAK TIME · 휴식 중' : 'LEVEL ' + levelNo(c.level)}</div>
@@ -653,7 +655,7 @@
     return `<div class="clock-screen">
       <section class="clock-main">
         <div class="clock-top"><span class="game-name">${esc(S.game.name || '캐시 게임')}</span>
-          <button class="btn btn-icon sm btn-ghost" data-action="fullscreen" aria-label="전체 화면">${icon('full')}</button></div>
+          <button class="btn btn-sm btn-ghost" data-action="focus-on">${icon('full')} 타이머만 보기</button></div>
         <div class="lvl-label">CASH GAME</div>
         <div class="blinds-now"><small>BLINDS</small><b style="font-size:clamp(56px, min(15vw, 17vh), 150px)">${fmt(c.sb)} / ${fmt(c.bb)}</b></div>
         <div class="blinds-next" style="margin-top:12px">경과 시간</div>
@@ -1070,6 +1072,31 @@
     </div>`;
   }
 
+  // 타이머만 크게 보여주는 화면 (메뉴·버튼 없이)
+  function renderFocus() {
+    const exit = `<button class="focus-exit" data-action="focus-off">${icon('x')} 나가기</button>`;
+    if (!isT()) {
+      const c = S.game.cash;
+      return `<div class="focus">${exit}
+        <div class="f-level">CASH GAME</div>
+        <div class="f-blinds">${fmt(c.sb)} / ${fmt(c.bb)}</div>
+        <div class="f-next">경과 시간</div>
+        <div class="f-time small" data-clock="elapsed"></div></div>`;
+    }
+    const c = S.clock, L = curLevel(), brk = !!L.brk, nx = nextBlindLevel(), bl = blindsAt(c.level);
+    const alive = activePlayers(), chips = sum(alive, (p) => p.stack);
+    return `<div class="focus ${brk ? 'is-break' : ''}">${exit}
+      ${!c.running ? '<div class="paused-badge">일시정지</div>' : ''}
+      <div class="f-level">${brk ? icon('coffee') + ' BREAK TIME' : 'LEVEL ' + levelNo(c.level)}</div>
+      <div class="f-time time ${c.running ? '' : 'paused'}" data-clock="time">${fmtTime(clockRemain())}</div>
+      <div class="progress f-progress"><i data-clock="bar"></i></div>
+      <div class="f-blinds">${brk ? (nx ? '<small>휴식 후</small> ' + fmt(nx.sb) + ' / ' + fmt(nx.bb) : '휴식 중') : fmt(bl.sb) + ' / ' + fmt(bl.bb)}</div>
+      <div class="f-next">${!brk && nx ? `다음 <b>${fmt(nx.sb)} / ${fmt(nx.bb)}</b> · ` : ''}<span data-clock="nextbreak"></span></div>
+      <div class="f-stats"><span>남은 인원 <b>${alive.length}/${S.players.length}</b></span><span>평균 스택 <b>${fmt(alive.length ? chips / alive.length : 0)}</b></span><span>총 상금 <b>${won(sum(S.players, (p) => p.invested))}</b></span></div>
+      <button class="f-play" data-action="clock-toggle" aria-label="${c.running ? '일시정지' : '시작'}">${icon(c.running ? 'pause' : 'play')}</button>
+    </div>`;
+  }
+
   const SCREENS = { clock: renderClockScreen, table: renderTableScreen, players: renderPlayers, settings: renderSettings };
 
   // ---------------------------------------------------------------- 게임 동작
@@ -1342,6 +1369,17 @@
     noop() {},
     nav(d) { S.screen = d.screen; UI.raiseOpen = false; save(); render(); },
     fullscreen: toggleFullscreen,
+    'focus-on'() {
+      UI.focus = true;
+      const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req && !document.fullscreenElement) { const r = req.call(el); if (r && r.catch) r.catch(() => {}); }
+      render();
+    },
+    'focus-off'() {
+      UI.focus = false;
+      if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      render();
+    },
     'modal-close': closeModal,
     'm-resolve'(d) {
       const r = UI.resolve;
@@ -1817,6 +1855,7 @@
     else if (t.id === 'np-name' && isT()) { e.preventDefault(); ACTIONS['np-save'](); }
     else if (t.matches && t.matches('[data-raise-input]')) t.blur();
   });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && UI.focus) ACTIONS['focus-off'](); });
   document.addEventListener('toggle', (e) => {
     if (e.target.matches && e.target.matches('details.struct-details')) UI.structOpen = e.target.open;
   }, true);

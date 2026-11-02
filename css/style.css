@@ -787,3 +787,34 @@ details.struct-details summary::-webkit-details-marker { display: none; }
 .lv-row.drop-after { box-shadow: 0 3px 0 var(--blue); }
 .lv-item.cur.brk { background: rgba(76,141,255,.16); }
 .lv-item.cur.brk .n, .lv-item.cur.brk .b { color: var(--blue); }
+
+/* 타이머만 보기 */
+.focus {
+  position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(6px, 1.5vh, 16px); text-align: center; padding: 24px;
+  background: radial-gradient(110% 70% at 50% 0%, rgba(246,195,80,.12), transparent 60%), var(--bg);
+}
+.focus.is-break { background: radial-gradient(110% 70% at 50% 0%, rgba(76,141,255,.2), transparent 60%), var(--bg); }
+.focus-exit {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; height: 44px; padding: 0 16px; border-radius: 12px;
+  border: 1px solid var(--line-2); background: rgba(19,25,34,.8); color: var(--text-2); font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: .7;
+}
+.focus-exit svg { width: 18px; height: 18px; }
+.f-level { font-size: clamp(20px, 3.4vw, 40px); font-weight: 900; letter-spacing: .24em; color: var(--gold); display: flex; align-items: center; gap: 12px; }
+.f-level svg { width: 1.1em; height: 1.1em; }
+.focus.is-break .f-level { color: var(--blue); }
+.f-time { font-size: clamp(120px, min(30vw, 46vh), 440px) !important; font-weight: 800; line-height: .9; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.f-time.small { font-size: clamp(80px, min(20vw, 30vh), 300px) !important; }
+.focus.is-break .f-time { color: #cfe0ff; }
+.f-progress { width: min(900px, 86vw); height: 10px; }
+.f-blinds { font-size: clamp(48px, min(11vw, 15vh), 160px); font-weight: 900; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.f-blinds small { font-size: .4em; color: var(--text-3); font-weight: 800; }
+.f-next { font-size: clamp(16px, 2.4vw, 28px); color: var(--text-2); font-weight: 600; }
+.f-next b { color: var(--text); }
+.f-stats { display: flex; gap: clamp(14px, 4vw, 48px); flex-wrap: wrap; justify-content: center; font-size: clamp(14px, 1.8vw, 20px); color: var(--text-3); margin-top: 8px; }
+.f-stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+.f-play {
+  position: absolute; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); right: 18px; width: 56px; height: 56px; border-radius: 50%;
+  border: 1px solid var(--line-2); background: rgba(19,25,34,.8); color: var(--text-2); display: grid; place-items: center; cursor: pointer; opacity: .7;
+}
+.f-play svg { width: 24px; height: 24px; }

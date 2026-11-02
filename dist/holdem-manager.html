@@ -801,6 +801,37 @@ details.struct-details summary::-webkit-details-marker { display: none; }
 .lv-item.cur.brk { background: rgba(76,141,255,.16); }
 .lv-item.cur.brk .n, .lv-item.cur.brk .b { color: var(--blue); }
 
+/* 타이머만 보기 */
+.focus {
+  position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(6px, 1.5vh, 16px); text-align: center; padding: 24px;
+  background: radial-gradient(110% 70% at 50% 0%, rgba(246,195,80,.12), transparent 60%), var(--bg);
+}
+.focus.is-break { background: radial-gradient(110% 70% at 50% 0%, rgba(76,141,255,.2), transparent 60%), var(--bg); }
+.focus-exit {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; height: 44px; padding: 0 16px; border-radius: 12px;
+  border: 1px solid var(--line-2); background: rgba(19,25,34,.8); color: var(--text-2); font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: .7;
+}
+.focus-exit svg { width: 18px; height: 18px; }
+.f-level { font-size: clamp(20px, 3.4vw, 40px); font-weight: 900; letter-spacing: .24em; color: var(--gold); display: flex; align-items: center; gap: 12px; }
+.f-level svg { width: 1.1em; height: 1.1em; }
+.focus.is-break .f-level { color: var(--blue); }
+.f-time { font-size: clamp(120px, min(30vw, 46vh), 440px) !important; font-weight: 800; line-height: .9; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.f-time.small { font-size: clamp(80px, min(20vw, 30vh), 300px) !important; }
+.focus.is-break .f-time { color: #cfe0ff; }
+.f-progress { width: min(900px, 86vw); height: 10px; }
+.f-blinds { font-size: clamp(48px, min(11vw, 15vh), 160px); font-weight: 900; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.f-blinds small { font-size: .4em; color: var(--text-3); font-weight: 800; }
+.f-next { font-size: clamp(16px, 2.4vw, 28px); color: var(--text-2); font-weight: 600; }
+.f-next b { color: var(--text); }
+.f-stats { display: flex; gap: clamp(14px, 4vw, 48px); flex-wrap: wrap; justify-content: center; font-size: clamp(14px, 1.8vw, 20px); color: var(--text-3); margin-top: 8px; }
+.f-stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+.f-play {
+  position: absolute; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); right: 18px; width: 56px; height: 56px; border-radius: 50%;
+  border: 1px solid var(--line-2); background: rgba(19,25,34,.8); color: var(--text-2); display: grid; place-items: center; cursor: pointer; opacity: .7;
+}
+.f-play svg { width: 24px; height: 24px; }
+
 </style>
 </head>
 <body>
@@ -1564,6 +1595,8 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     const key = S.started ? S.screen : 'setup';
     if (!S.started) {
       app.innerHTML = `<div class="shell"><main class="main">${renderSetup()}</main></div>`;
+    } else if (UI.focus) {
+      app.innerHTML = renderFocus();
     } else {
       app.innerHTML = `<div class="shell">${renderNav()}<main class="main ${key === 'table' ? 'fixed' : ''}">${SCREENS[key]()}</main></div>`;
     }
@@ -1745,7 +1778,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     return `<div class="clock-screen">
       <section class="clock-main ${brk ? 'is-break' : ''}">
         <div class="clock-top"><span class="game-name">${esc(S.game.name || '토너먼트')}</span>
-          <button class="btn btn-icon sm btn-ghost" data-action="fullscreen" aria-label="전체 화면">${icon('full')}</button></div>
+          <button class="btn btn-sm btn-ghost" data-action="focus-on">${icon('full')} 타이머만 보기</button></div>
         ${!c.running ? '<div class="paused-badge">일시정지</div>' : ''}
         ${brk ? `<div class="break-ico">${icon('coffee')}</div>` : ''}
         <div class="lvl-label">${brk ? 'BREAK TIME · 휴식 중' : 'LEVEL ' + levelNo(c.level)}</div>
@@ -1781,7 +1814,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     return `<div class="clock-screen">
       <section class="clock-main">
         <div class="clock-top"><span class="game-name">${esc(S.game.name || '캐시 게임')}</span>
-          <button class="btn btn-icon sm btn-ghost" data-action="fullscreen" aria-label="전체 화면">${icon('full')}</button></div>
+          <button class="btn btn-sm btn-ghost" data-action="focus-on">${icon('full')} 타이머만 보기</button></div>
         <div class="lvl-label">CASH GAME</div>
         <div class="blinds-now"><small>BLINDS</small><b style="font-size:clamp(56px, min(15vw, 17vh), 150px)">${fmt(c.sb)} / ${fmt(c.bb)}</b></div>
         <div class="blinds-next" style="margin-top:12px">경과 시간</div>
@@ -2198,6 +2231,31 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     </div>`;
   }
 
+  // 타이머만 크게 보여주는 화면 (메뉴·버튼 없이)
+  function renderFocus() {
+    const exit = `<button class="focus-exit" data-action="focus-off">${icon('x')} 나가기</button>`;
+    if (!isT()) {
+      const c = S.game.cash;
+      return `<div class="focus">${exit}
+        <div class="f-level">CASH GAME</div>
+        <div class="f-blinds">${fmt(c.sb)} / ${fmt(c.bb)}</div>
+        <div class="f-next">경과 시간</div>
+        <div class="f-time small" data-clock="elapsed"></div></div>`;
+    }
+    const c = S.clock, L = curLevel(), brk = !!L.brk, nx = nextBlindLevel(), bl = blindsAt(c.level);
+    const alive = activePlayers(), chips = sum(alive, (p) => p.stack);
+    return `<div class="focus ${brk ? 'is-break' : ''}">${exit}
+      ${!c.running ? '<div class="paused-badge">일시정지</div>' : ''}
+      <div class="f-level">${brk ? icon('coffee') + ' BREAK TIME' : 'LEVEL ' + levelNo(c.level)}</div>
+      <div class="f-time time ${c.running ? '' : 'paused'}" data-clock="time">${fmtTime(clockRemain())}</div>
+      <div class="progress f-progress"><i data-clock="bar"></i></div>
+      <div class="f-blinds">${brk ? (nx ? '<small>휴식 후</small> ' + fmt(nx.sb) + ' / ' + fmt(nx.bb) : '휴식 중') : fmt(bl.sb) + ' / ' + fmt(bl.bb)}</div>
+      <div class="f-next">${!brk && nx ? `다음 <b>${fmt(nx.sb)} / ${fmt(nx.bb)}</b> · ` : ''}<span data-clock="nextbreak"></span></div>
+      <div class="f-stats"><span>남은 인원 <b>${alive.length}/${S.players.length}</b></span><span>평균 스택 <b>${fmt(alive.length ? chips / alive.length : 0)}</b></span><span>총 상금 <b>${won(sum(S.players, (p) => p.invested))}</b></span></div>
+      <button class="f-play" data-action="clock-toggle" aria-label="${c.running ? '일시정지' : '시작'}">${icon(c.running ? 'pause' : 'play')}</button>
+    </div>`;
+  }
+
   const SCREENS = { clock: renderClockScreen, table: renderTableScreen, players: renderPlayers, settings: renderSettings };
 
   // ---------------------------------------------------------------- 게임 동작
@@ -2470,6 +2528,17 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     noop() {},
     nav(d) { S.screen = d.screen; UI.raiseOpen = false; save(); render(); },
     fullscreen: toggleFullscreen,
+    'focus-on'() {
+      UI.focus = true;
+      const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req && !document.fullscreenElement) { const r = req.call(el); if (r && r.catch) r.catch(() => {}); }
+      render();
+    },
+    'focus-off'() {
+      UI.focus = false;
+      if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      render();
+    },
     'modal-close': closeModal,
     'm-resolve'(d) {
       const r = UI.resolve;
@@ -2945,6 +3014,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     else if (t.id === 'np-name' && isT()) { e.preventDefault(); ACTIONS['np-save'](); }
     else if (t.matches && t.matches('[data-raise-input]')) t.blur();
   });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && UI.focus) ACTIONS['focus-off'](); });
   document.addEventListener('toggle', (e) => {
     if (e.target.matches && e.target.matches('details.struct-details')) UI.structOpen = e.target.open;
   }, true);
