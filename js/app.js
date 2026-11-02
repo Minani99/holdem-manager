@@ -231,28 +231,58 @@
     if (actx && actx.state === 'suspended') actx.resume();
     return actx;
   }
-  function tone(freq, start, dur, type, gain) {
+  // 효과음: 배음을 겹친 벨(차임) 소리를 잔향과 함께 합성 — 외부 음원 파일 없이 동작
+  let bus = null;
+  function soundBus() {
     const ctx = audio();
-    if (!ctx) return;
-    const t0 = ctx.currentTime + start;
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = type || 'sine';
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(gain || 0.25, t0 + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g).connect(ctx.destination);
-    o.start(t0);
-    o.stop(t0 + dur + 0.05);
+    if (!ctx) return null;
+    if (bus) return bus;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -16;
+    comp.ratio.value = 3;
+    const len = Math.floor(ctx.sampleRate * 2.4), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.4);
+    }
+    const verb = ctx.createConvolver();
+    verb.buffer = ir;
+    const wet = ctx.createGain(), dry = ctx.createGain(), input = ctx.createGain();
+    wet.gain.value = 0.3;
+    dry.gain.value = 0.85;
+    input.connect(dry).connect(comp);
+    input.connect(verb).connect(wet).connect(comp);
+    comp.connect(ctx.destination);
+    bus = input;
+    return bus;
+  }
+  function bell(freq, start, opts) {
+    const ctx = audio(), dest = soundBus();
+    if (!ctx || !dest) return;
+    const o = opts || {}, t0 = ctx.currentTime + start, vol = o.vol || 0.22, decay = o.decay || 2;
+    const partials = o.soft ? [[1, 1], [2, 0.3], [3, 0.1]] : [[1, 1], [2.01, 0.45], [3.02, 0.2], [4.17, 0.1], [5.43, 0.05]];
+    partials.forEach(([ratio, amp], k) => {
+      const osc = ctx.createOscillator(), g = ctx.createGain(), d = decay / (1 + k * 0.7);
+      osc.type = 'sine';
+      osc.frequency.value = freq * ratio;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol * amp, t0 + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+      osc.connect(g).connect(dest);
+      osc.start(t0);
+      osc.stop(t0 + d + 0.05);
+    });
   }
   const SND = {
-    warn() { tone(880, 0, 0.16, 'square', 0.12); tone(880, 0.26, 0.16, 'square', 0.12); },
+    // 블라인드 업: 맑게 올라가는 차임 (솔-시-레-솔)
     level() {
-      [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.4, 'triangle', 0.32));
-      [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.75 + i * 0.13, 0.4, 'triangle', 0.32));
+      [[783.99, 0], [987.77, 0.16], [1174.66, 0.32]].forEach(([f, t]) => bell(f, t, { decay: 2.2 }));
+      bell(1567.98, 0.5, { decay: 2.8, vol: 0.15 });
     },
-    brk() { [784, 659, 523, 392].forEach((f, i) => tone(f, i * 0.3, 0.7, 'sine', 0.34)); },
-    resume() { [392, 523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.22, 'square', 0.16)); [784, 1047].forEach((f, i) => tone(f, 0.5 + i * 0.12, 0.35, 'square', 0.16)); }
+    // 휴식 시작: 부드럽게 내려가는 '딩-동'
+    brk() { bell(659.25, 0, { soft: true, decay: 2.4, vol: 0.32 }); bell(523.25, 0.5, { soft: true, decay: 3.2, vol: 0.32 }); },
+    // 휴식 끝: 밝게 두 번 울리고 마무리
+    resume() { bell(880, 0, { decay: 1.1 }); bell(880, 0.18, { decay: 1.1 }); bell(1318.51, 0.4, { decay: 2.6 }); }
   };
   function vibrate(pattern) {
     if (S.prefs.vibrate && navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) { /* 미지원 */ } }
@@ -299,13 +329,6 @@
     if (S.started && isT() && S.clock.running) {
       const c = S.clock;
       let rem = c.endsAt - Date.now();
-      if (S.prefs.warn && rem > 0 && rem <= 60000 && c.warned !== c.level) {
-        c.warned = c.level;
-        save();
-        if (S.prefs.sound) SND.warn();
-        vibrate([200, 100, 200]);
-        if (curLevel().brk) toast('휴식 1분 남았어요 · 곧 게임 재개');
-      }
       if (rem <= 0) {
         const wasBrk = !!curLevel().brk;
         let moved = false;
@@ -316,7 +339,6 @@
           rem += levels()[c.level].min * 60000;
         }
         if (c.running) c.endsAt = Date.now() + rem;
-        c.warned = rem <= 60000 ? c.level : -1;
         save();
         render();
         if (moved) announceLevel(wasBrk);
@@ -329,10 +351,8 @@
     const ms = clockRemain();
     const L = curLevel();
     const total = Math.max(1, (L.min || 1) * 60000);
-    const warn = isT() && S.clock.running && ms <= 60000;
     $$('[data-clock="time"]').forEach((el) => {
       el.textContent = fmtTime(ms);
-      el.classList.toggle('warn', warn);
       el.classList.toggle('paused', !S.clock.running);
     });
     $$('[data-clock="bar"]').forEach((el) => { el.style.width = clamp((ms / total) * 100, 0, 100).toFixed(2) + '%'; });
@@ -919,7 +939,7 @@
     return `<div class="raise-top">
         <button class="step-btn" data-action="raise-step" data-d="-1" aria-label="줄이기">${icon('minus')}</button>
         <div class="raise-amt"><small>${L.isBet ? '벳' : '레이즈'} 금액 (총액)</small>
-          <input class="raise-input" type="number" inputmode="numeric" data-raise-input value="${UI.raiseTo}"></div>
+          <input class="raise-input" type="text" inputmode="numeric" data-raise-input value="${fmt(UI.raiseTo)}"></div>
         <button class="step-btn" data-action="raise-step" data-d="1" aria-label="늘리기">${icon('plus')}</button>
         <button class="step-btn raise-close" data-action="raise-close" aria-label="닫기">${icon('x')}</button>
       </div>
@@ -944,8 +964,8 @@
     return `<div class="panel-act">
       <div class="act-side">
         <div class="actor"><span class="avatar" style="--c:${p.color}">${esc(initial(p.name))}</span>
-          <div><b>${esc(p.name)}</b> <span class="hint">차례</span>
-          <div class="sub">스택 ${fmt(L.stack)} · ${L.toCall ? `콜 <em>${fmt(L.callAmt)}</em>` : '체크 가능'} · 팟 ${fmt(L.pot)}</div></div></div>
+          <div class="actor-body"><div class="actor-name"><b>${esc(p.name)}</b><span class="turn-tag">차례</span></div>
+          <div class="actor-pills"><span>스택 <b>${fmt(L.stack)}</b></span><span class="${L.toCall ? 'need' : 'free'}">${L.toCall ? `콜 <b>${fmt(L.callAmt)}</b>` : '체크 가능'}</span><span>팟 <b>${fmt(L.pot)}</b></span></div></div></div>
         <div class="act-log">${renderLog(h)}</div>
       </div>
       <div class="raise-box">${L.canRaise ? renderRaiseBox(h, L) : `<div class="raise-na">${na}</div>`}</div>
@@ -1060,8 +1080,7 @@
       <section class="card">
         <h2 class="sec-title">알림 · 화면</h2>
         ${t ? toggleRow('prefs.sound', '레벨업 알림음', '블라인드가 오를 때 소리로 알려줘요', S.prefs.sound) : ''}
-        ${t ? toggleRow('prefs.vibrate', '진동', '레벨업 · 1분 전 경고 때 진동 (안드로이드)', S.prefs.vibrate) : ''}
-        ${t ? toggleRow('prefs.warn', '1분 전 경고', '레벨이 끝나기 1분 전에 짧게 알려줘요', S.prefs.warn) : ''}
+        ${t ? toggleRow('prefs.vibrate', '진동', '블라인드업 · 휴식 때 진동 (안드로이드)', S.prefs.vibrate) : ''}
         ${toggleRow('prefs.wake', '화면 꺼짐 방지', '게임 중에는 화면이 자동으로 꺼지지 않아요', S.prefs.wake)}
         <div class="row wrap" style="margin-top:12px">
           ${t ? `<button class="btn btn-sm" data-action="test-sound">${icon('sound')} 알림 테스트</button>` : ''}
@@ -1496,7 +1515,13 @@
       save();
       render();
     },
-    'test-sound'() { audio(); SND.level(); vibrate([300, 120, 300]); toast('알림음 · 진동 테스트'); },
+    'test-sound'() {
+      // 세 가지 알림음을 차례로 들려준다
+      audio();
+      SND.level(); vibrate([300, 120, 300]); toast('① 블라인드 업');
+      setTimeout(() => { SND.brk(); toast('② 휴식 시작'); }, 3000);
+      setTimeout(() => { SND.resume(); toast('③ 휴식 끝'); }, 6500);
+    },
 
     // 테이블
     'hand-start': startHand,
@@ -1760,7 +1785,7 @@
     UI.raiseTo = snapRaise(L, Number(v), h.unit);
     $$('[data-raise-label]').forEach((el) => { el.textContent = fmt(UI.raiseTo); });
     const inp = $('[data-raise-input]');
-    if (inp) inp.value = UI.raiseTo;
+    if (inp) inp.value = fmt(UI.raiseTo);
     const sl = $('[data-raise-slider]');
     if (sl) sl.value = UI.raiseTo;
   }
@@ -1851,7 +1876,7 @@
     const t = e.target;
     if (t.matches('[data-bind]')) onBind(t);
     else if (t.matches('[data-lv]')) onLevelEdit(t);
-    else if (t.matches('[data-raise-input]')) setRaise(Number(t.value));
+    else if (t.matches('[data-raise-input]')) setRaise(Number(t.value.replace(/[^\d]/g, '')));
   });
   document.addEventListener('input', (e) => {
     const t = e.target;
