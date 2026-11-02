@@ -1241,9 +1241,10 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     standard: { label: '표준', min: 15, depth: 100, every: 4, desc: '15분 레벨 · 1시간마다 휴식' },
     deep: { label: '딥스택', min: 20, depth: 200, every: 3, desc: '20분 레벨 · 1시간마다 휴식' }
   };
-  function buildLevels(key, startChips) {
+  // startBB: 시작 빅블라인드 (0이면 시작 칩의 약 100BB로 자동)
+  function buildLevels(key, startChips, startBB) {
     const p = PRESETS[key] || PRESETS.standard;
-    const target = Math.max(1, startChips / p.depth);
+    const target = startBB > 0 ? startBB : Math.max(1, startChips / p.depth);
     let start = 0, best = Infinity;
     LADDER.forEach(([, bb], i) => { const d = Math.abs(Math.log(bb / target)); if (d < best) { best = d; start = i; } });
     const out = [], count = 20;
@@ -1269,7 +1270,8 @@ details.struct-details summary::-webkit-details-marker { display: none; }
         addon: { on: false, won: 20000, chips: 20000 },
         cash: { sb: 100, bb: 200 },
         preset: 'standard',
-        levels: buildLevels('standard', 20000)
+        startBB: 200,
+        levels: buildLevels('standard', 20000, 200)
       },
       prefs: { sound: true, vibrate: true, warn: true, wake: true },
       clock: { level: 0, running: false, remain: 15 * 60000, endsAt: 0, warned: -1 },
@@ -1293,7 +1295,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       const d = defaultState();
       const m = Object.assign(d, s, { game: Object.assign(d.game, s.game), prefs: Object.assign(d.prefs, s.prefs) });
       // 게임 시작 전이고 직접 편집한 구조가 아니면 최신 프리셋으로 다시 만든다
-      if (!m.started && m.game.preset !== 'custom') m.game.levels = buildLevels(m.game.preset, m.game.buyIn.chips);
+      if (!m.started && m.game.preset !== 'custom') m.game.levels = buildLevels(m.game.preset, m.game.buyIn.chips, m.game.startBB);
       return m;
     } catch (e) { return null; }
   }
@@ -1679,7 +1681,10 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     const editor = renderLevelEditor();
     return `<h2 class="sec-title">블라인드 구조</h2>
       <div class="preset-grid">${presets}</div>
-      <p class="hint" style="margin-top:8px">홀덤펍·대회에서 많이 쓰는 구조예요 — 시작 칩에 맞춰 약 100BB로 시작하고, 1시간마다 10분 휴식이 들어가요.</p>
+      <div class="field" style="margin-top:14px"><span class="field-label">시작 블라인드</span>
+        <div class="chips-row" style="margin-top:2px">${[[100, '50 / 100'], [200, '100 / 200'], [400, '200 / 400'], [600, '300 / 600'], [0, '자동 (100BB)']].map(([v, t]) => `<button class="chip-opt ${(g.startBB || 0) === v ? 'on' : ''}" data-action="start-bb" data-v="${v}">${t}</button>`).join('')}</div>
+        <p class="hint" style="margin-top:6px">시작 칩 ${fmt(g.buyIn.chips)} = 시작 블라인드의 <b>${Math.round(g.buyIn.chips / ((levels().find((l) => !l.brk) || { bb: 1 }).bb))}BB</b> · 가볍게 할 땐 100 / 200 시작이 무난해요</p></div>
+      <p class="hint" style="margin-top:8px">홀덤펍·대회에서 많이 쓰는 블라인드 진행이에요 (1시간마다 10분 휴식).</p>
       ${structSummary()}
       ${inSettings ? editor : `<details class="struct-details" ${UI.structOpen ? 'open' : ''}><summary>레벨 자세히 보기 · 편집 ›</summary>${editor}</details>`}`;
   }
@@ -2565,10 +2570,20 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       $('[data-derived="draft-count"]').textContent = `${S.draft.length} / ${MAX_SEATS}`;
     },
     'start-game': startGame,
+    async 'start-bb'(d) {
+      const v = +d.v;
+      if (S.started && !(await confirmBox({ title: '시작 블라인드를 바꿀까요?', body: '블라인드 구조가 새로 만들어져요. 현재 레벨 번호는 유지돼요.' }))) return;
+      S.game.startBB = v;
+      if (S.game.preset === 'custom') S.game.preset = 'standard';
+      S.game.levels = buildLevels(S.game.preset, S.game.buyIn.chips, v);
+      if (!S.started) resetClock(); else S.clock.level = Math.min(S.clock.level, levels().length - 1);
+      save();
+      render();
+    },
     async preset(d) {
       if (S.started && !(await confirmBox({ title: `${PRESETS[d.k].label} 구조로 바꿀까요?`, body: '지금 블라인드 구조가 새 프리셋으로 바뀌어요. 현재 레벨 번호는 유지돼요.' }))) return;
       S.game.preset = d.k;
-      S.game.levels = buildLevels(d.k, S.game.buyIn.chips);
+      S.game.levels = buildLevels(d.k, S.game.buyIn.chips, S.game.startBB);
       if (!S.started) resetClock();
       else { S.clock.level = Math.min(S.clock.level, levels().length - 1); }
       save();
@@ -2932,7 +2947,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
         if (g.rebuy.chips === old) { g.rebuy.chips = v; sync('game.rebuy.chips'); }
         if (g.addon.chips === old) { g.addon.chips = v; sync('game.addon.chips'); }
         if (g.preset !== 'custom' && v > 0) {
-          g.levels = buildLevels(g.preset, v);
+          g.levels = buildLevels(g.preset, v, g.startBB);
           resetClock();
           const sec = $('#sec-blinds');
           if (sec && isT()) sec.innerHTML = renderStructure(false);
