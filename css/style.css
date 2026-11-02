@@ -854,3 +854,41 @@ details.struct-details summary::-webkit-details-marker { display: none; }
   .card-slot { width: 40px; height: 56px; border-radius: 6px; }
   .street-pill { font-size: 13px; padding: 5px 14px; }
 }
+
+/* 새 게임 하단 버튼 두 개 */
+.footer-row { display: flex; gap: 10px; max-width: 728px; margin: 0 auto; }
+.footer-row .btn { margin: 0; }
+.footer-row .btn-gold { flex: 1; }
+.footer-sub { background: var(--surface-2); border: 1px solid var(--line-2); }
+.stat-cta { text-align: left; cursor: pointer; border-style: dashed; border-color: rgba(246,195,80,.45); background: var(--gold-soft); color: var(--text); font: inherit; }
+.stat-cta .k { color: var(--gold); display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.stat-cta .k svg { width: 18px; height: 18px; }
+/* 휴대폰: 타이머 상단 정리 (이름 숨김 · 일시정지 표시는 왼쪽) */
+@media (max-width: 520px) {
+  .clock-main { padding-top: 64px; }
+  .clock-top .game-name { display: none; }
+  .clock-main .paused-badge { left: 16px; transform: none; top: 18px; }
+  .clock-main .lvl-label { margin-top: 0; }
+  .clock-main.is-break .break-ico { margin-top: 0; }
+}
+@media (max-width: 520px) {
+  .clock-top { justify-content: flex-end; }
+}
+/* 타이머만 보기: 좁은 화면에서도 숫자가 잘리지 않게 */
+.focus { overflow: hidden; }
+.f-time { font-size: clamp(72px, min(25vw, 46vh), 440px) !important; }
+.f-time.small { font-size: clamp(56px, min(18vw, 30vh), 300px) !important; }
+.f-blinds { font-size: clamp(32px, min(11vw, 15vh), 160px); }
+.f-level { font-size: clamp(16px, 3.4vw, 40px); }
+@media (max-width: 520px) {
+  .focus { padding: 70px 16px 90px; }
+  .f-stats { flex-direction: column; gap: 4px; }
+}
+/* 휴대폰: 통계 숫자가 잘리지 않게 */
+@media (max-width: 520px) {
+  .stat { padding: 12px 14px; }
+  .stat .v { font-size: 21px; }
+  .stat-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .page-title { font-size: 22px; }
+  .page { padding: 16px 14px 28px; }
+}

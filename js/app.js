@@ -605,13 +605,25 @@
         </form>
         <div class="draft-list" id="draft-list">${draftChips()}</div>
         <div style="margin-top:8px">${toggleRow('seatRandom', '자리 랜덤 배정', '끄면 추가한 순서대로 1번 자리부터 앉아요', S.seatRandom)}</div>
+        ${isT() ? '<p class="hint" style="margin-top:6px">블라인드 타이머만 쓸 거면 플레이어 없이 아래 <b>타이머만 쓰기</b>를 누르세요. 플레이어는 나중에 추가해도 돼요.</p>' : ''}
       </section>
-      <div class="setup-footer"><button class="btn btn-gold btn-lg btn-block" data-action="start-game">${icon('play')} 게임 시작</button></div>
+      <div class="setup-footer"><div class="footer-row">
+        ${isT() ? `<button class="btn btn-lg footer-sub" data-action="start-timer">${icon('clock')} 타이머만 쓰기</button>` : ''}
+        <button class="btn btn-gold btn-lg" data-action="start-game">${icon('play')} 게임 시작</button></div></div>
     </div>`;
   }
 
   // ----- 타이머 / 현황 화면
   function tournamentStats() {
+    if (!S.players.length) {
+      const L = levels(), cur = S.clock.level;
+      const total = L.filter((l) => !l.brk).length, brksLeft = L.slice(cur + 1).filter((l) => l.brk).length;
+      return `
+      <div class="stat"><div class="k">레벨 진행</div><div class="v">${levelNo(cur)}<small>/ ${total}</small></div><div class="s">레벨당 ${(L.find((l) => !l.brk) || { min: 0 }).min}분</div></div>
+      <div class="stat"><div class="k">남은 휴식</div><div class="v">${brksLeft}<small>회</small></div><div class="s" data-clock="nextbreak"></div></div>
+      <div class="stat wide"><div class="k">경과 시간</div><div class="v" data-clock="elapsed">-</div></div>
+      <button class="stat wide stat-cta" data-action="nav" data-screen="players"><div class="k">${icon('users')} 플레이어 추가</div><div class="s">추가하면 칩 · 리바이 · 핸드 진행 · 사이드팟 계산도 쓸 수 있어요</div></button>`;
+    }
     const alive = activePlayers();
     const chips = sum(alive, (p) => p.stack);
     const avg = alive.length ? chips / alive.length : 0;
@@ -1116,7 +1128,7 @@
       <div class="progress f-progress"><i data-clock="bar"></i></div>
       <div class="f-blinds">${brk ? (nx ? '<small>휴식 후</small> ' + fmt(nx.sb) + ' / ' + fmt(nx.bb) : '휴식 중') : fmt(bl.sb) + ' / ' + fmt(bl.bb)}</div>
       <div class="f-next">${!brk && nx ? `다음 <b>${fmt(nx.sb)} / ${fmt(nx.bb)}</b> · ` : ''}<span data-clock="nextbreak"></span></div>
-      <div class="f-stats"><span>남은 인원 <b>${alive.length}/${S.players.length}</b></span><span>평균 스택 <b>${fmt(alive.length ? chips / alive.length : 0)}</b></span><span>총 상금 <b>${won(sum(S.players, (p) => p.invested))}</b></span></div>
+      ${S.players.length ? `<div class="f-stats"><span>남은 인원 <b>${alive.length}/${S.players.length}</b></span><span>평균 스택 <b>${fmt(alive.length ? chips / alive.length : 0)}</b></span><span>총 상금 <b>${won(sum(S.players, (p) => p.invested))}</b></span></div>` : ''}
       <button class="f-play" data-action="clock-toggle" aria-label="${c.running ? '일시정지' : '시작'}">${icon(c.running ? 'pause' : 'play')}</button>
     </div>`;
   }
@@ -1137,11 +1149,12 @@
       status: 'in', color: nextColor(), outSeq: 0, cashout: 0
     };
   }
-  function startGame() {
+  function startGame(timerOnly) {
     const g = S.game;
     const pending = $('[name=pname]');
-    if (pending && pending.value.trim() && S.draft.indexOf(pending.value.trim()) < 0 && S.draft.length < MAX_SEATS) S.draft.push(pending.value.trim());
-    if (S.draft.length < 2) return toast('플레이어를 2명 이상 추가하세요', 'warn');
+    if (timerOnly) S.draft = [];
+    else if (pending && pending.value.trim() && S.draft.indexOf(pending.value.trim()) < 0 && S.draft.length < MAX_SEATS) S.draft.push(pending.value.trim());
+    if (!timerOnly && S.draft.length < 2) return toast(isT() ? '플레이어를 2명 이상 추가하거나 \'타이머만 쓰기\'를 누르세요' : '플레이어를 2명 이상 추가하세요', 'warn');
     if (!(g.buyIn.won > 0 && g.buyIn.chips > 0)) return toast('바이인 금액과 칩을 확인하세요', 'warn');
     if (isT() && !g.levels.some((l) => !l.brk && l.sb > 0 && l.bb > 0)) return toast('블라인드 레벨을 1개 이상 만들어 주세요', 'warn');
     if (!isT() && !(g.cash.sb > 0 && g.cash.bb >= g.cash.sb)) return toast('블라인드 금액을 확인하세요', 'warn');
@@ -1153,12 +1166,12 @@
     S.startedAt = Date.now();
     S.screen = isT() ? 'clock' : 'table';
     resetClock();
-    S.button = seats[Math.floor(Math.random() * seats.length)];
+    S.button = seats[Math.floor(Math.random() * seats.length)] || 1;
     Object.assign(S, { handNo: 0, hand: null, undo: [], outSeq: 0, finished: false, draft: [] });
     save();
     render();
     keepAwake();
-    toast(isT() ? '게임 시작! ▶ 버튼을 눌러 타이머를 시작하세요' : '게임 시작!', 'ok');
+    toast(timerOnly ? '▶ 버튼을 누르면 타이머가 시작돼요' : isT() ? '게임 시작! ▶ 버튼을 눌러 타이머를 시작하세요' : '게임 시작!', 'ok');
   }
   function startHand() {
     const el = eligible();
@@ -1429,7 +1442,8 @@
       $('#draft-list').innerHTML = draftChips();
       $('[data-derived="draft-count"]').textContent = `${S.draft.length} / ${MAX_SEATS}`;
     },
-    'start-game': startGame,
+    'start-game': () => startGame(false),
+    'start-timer': () => startGame(true),
     async 'start-bb'(d) {
       const v = +d.v;
       if (S.started && !(await confirmBox({ title: '시작 블라인드를 바꿀까요?', body: '블라인드 구조가 새로 만들어져요. 현재 레벨 번호는 유지돼요.' }))) return;
