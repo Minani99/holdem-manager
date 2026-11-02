@@ -756,3 +756,34 @@ details.struct-details summary::-webkit-details-marker { display: none; }
   .preset-grid { grid-template-columns: 1fr; }
   .clock-main { min-height: 380px; }
 }
+
+/* 휴식 시간 — 일반 레벨과 확실히 구분 (파란색 · 커피 아이콘) / 휴식 끝은 초록색 */
+.announce .a-ico { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--gold-soft); color: var(--gold); }
+.announce .a-ico svg { width: 30px; height: 30px; }
+.announce.brk .a-ico { background: rgba(76,141,255,.18); color: var(--blue); }
+.announce.brk .announce-card { padding: 18px 32px; }
+.announce.brk .a-v { color: #cfe0ff; }
+.announce.resume::before { box-shadow: inset 0 0 0 5px var(--green), inset 0 0 90px rgba(46,204,113,.5); }
+.announce.resume .announce-card { background: rgba(6,26,15,.95); border-color: var(--green); box-shadow: 0 16px 50px rgba(0,0,0,.6), 0 0 40px rgba(46,204,113,.35); }
+.announce.resume .a-k { color: var(--green); }
+.announce.resume .a-ico { background: var(--green-soft); color: var(--green); }
+.break-ico { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto; background: rgba(76,141,255,.16); color: var(--blue); animation: breathe 3s ease-in-out infinite; }
+.break-ico svg { width: 34px; height: 34px; }
+@keyframes breathe { 50% { transform: scale(1.08); box-shadow: 0 0 30px rgba(76,141,255,.35); } }
+.clock-main.is-break { border-color: rgba(76,141,255,.5); box-shadow: inset 0 0 80px rgba(76,141,255,.12); }
+.clock-main.is-break .break-ico { margin-top: 26px; }
+.clock-main.is-break .lvl-label { margin-top: 10px; }
+.clock-main.is-break .time { color: #cfe0ff; }
+.mini-clock.brk { border-color: rgba(76,141,255,.6); background: rgba(76,141,255,.14); }
+.mini-clock.brk .mc-lv { color: var(--blue); }
+.center-break .break-ico { width: 52px; height: 52px; margin-bottom: 6px; }
+.center-break .break-ico svg { width: 28px; height: 28px; }
+.center-break .center-blinds { color: #cfe0ff; font-size: 34px; }
+/* 휴식 줄 끌기 */
+.lv-drag { cursor: grab; touch-action: none; color: var(--blue) !important; display: grid; place-items: center; height: 44px; }
+.lv-drag svg { width: 22px; height: 22px; }
+.lv-row.dragging { position: relative; z-index: 5; background: #16274a; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.lv-row.drop-before { box-shadow: 0 -3px 0 var(--blue); }
+.lv-row.drop-after { box-shadow: 0 3px 0 var(--blue); }
+.lv-item.cur.brk { background: rgba(76,141,255,.16); }
+.lv-item.cur.brk .n, .lv-item.cur.brk .b { color: var(--blue); }

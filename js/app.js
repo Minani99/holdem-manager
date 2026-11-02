@@ -63,33 +63,35 @@
     chip: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/>',
     shuffle: '<path d="M3 7h3c4.5 0 6.5 10 11 10h4"/><path d="M3 17h3c1.7 0 3-1.4 4.2-3.3M13.8 10.3C15 8.4 16.3 7 18 7h3"/><path d="m18 4 3 3-3 3M18 14l3 3-3 3"/>',
     coffee: '<path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5v2.5M12 3.5v2.5"/>',
+    grip: '<circle cx="9" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="6" r="1.4" fill="currentColor"/><circle cx="9" cy="12" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="18" r="1.4" fill="currentColor"/><circle cx="15" cy="18" r="1.4" fill="currentColor"/>',
     sound: '<path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/>'
   };
   const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
 
   // ---------------------------------------------------------------- 블라인드 프리셋
+  // 홀덤펍·대회에서 흔히 쓰는 블라인드 진행 (100/200 → 200/300 → 200/400 → 300/600 …)
   const LADDER = [
-    [5, 10], [10, 20], [15, 30], [20, 40], [25, 50], [50, 100], [75, 150], [100, 200], [150, 300], [200, 400],
-    [250, 500], [300, 600], [400, 800], [500, 1000], [600, 1200], [800, 1600], [1000, 2000], [1200, 2400],
-    [1500, 3000], [2000, 4000], [2500, 5000], [3000, 6000], [4000, 8000], [5000, 10000], [6000, 12000],
-    [8000, 16000], [10000, 20000], [12000, 24000], [15000, 30000], [20000, 40000], [25000, 50000],
-    [30000, 60000], [40000, 80000], [50000, 100000]
+    [10, 20], [15, 30], [25, 50], [50, 100], [75, 150], [100, 200], [200, 300], [200, 400], [300, 600],
+    [400, 800], [500, 1000], [600, 1200], [800, 1600], [1000, 2000], [1200, 2400], [1500, 3000],
+    [2000, 4000], [2500, 5000], [3000, 6000], [4000, 8000], [5000, 10000], [6000, 12000], [8000, 16000],
+    [10000, 20000], [15000, 30000], [20000, 40000], [25000, 50000], [30000, 60000], [40000, 80000], [50000, 100000]
   ];
+  // 모든 프리셋: 시작 스택 ≈ 100BB(딥스택은 200BB), 약 1시간마다 10분 휴식
   const PRESETS = {
-    turbo: { label: '터보', min: 10, depth: 50, desc: '10분 · 빠른 진행' },
-    standard: { label: '표준', min: 15, depth: 100, desc: '15분 · 3~4시간' },
-    deep: { label: '딥스택', min: 20, depth: 200, desc: '20분 · 여유롭게' }
+    turbo: { label: '터보', min: 10, depth: 100, every: 6, desc: '10분 레벨 · 1시간마다 휴식' },
+    standard: { label: '표준', min: 15, depth: 100, every: 4, desc: '15분 레벨 · 1시간마다 휴식' },
+    deep: { label: '딥스택', min: 20, depth: 200, every: 3, desc: '20분 레벨 · 1시간마다 휴식' }
   };
   function buildLevels(key, startChips) {
     const p = PRESETS[key] || PRESETS.standard;
     const target = Math.max(1, startChips / p.depth);
     let start = 0, best = Infinity;
     LADDER.forEach(([, bb], i) => { const d = Math.abs(Math.log(bb / target)); if (d < best) { best = d; start = i; } });
-    const out = [];
-    for (let i = 0; i < 18 && start + i < LADDER.length; i++) {
+    const out = [], count = 20;
+    for (let i = 0; i < count && start + i < LADDER.length; i++) {
       const [sb, bb] = LADDER[start + i];
       out.push({ sb, bb, min: p.min });
-      if ((i + 1) % 4 === 0 && i < 17) out.push({ brk: true, min: 10 });
+      if ((i + 1) % p.every === 0 && i < count - 1) out.push({ brk: true, min: 10 });
     }
     return out;
   }
@@ -103,12 +105,12 @@
       game: {
         mode: 'tournament',
         name: '',
-        buyIn: { won: 20000, chips: 10000 },
-        rebuy: { on: true, won: 20000, chips: 10000, until: 6 },
-        addon: { on: false, won: 20000, chips: 10000 },
+        buyIn: { won: 20000, chips: 20000 },
+        rebuy: { on: true, won: 20000, chips: 20000, until: 6 },
+        addon: { on: false, won: 20000, chips: 20000 },
         cash: { sb: 100, bb: 200 },
         preset: 'standard',
-        levels: buildLevels('standard', 10000)
+        levels: buildLevels('standard', 20000)
       },
       prefs: { sound: true, vibrate: true, warn: true, wake: true },
       clock: { level: 0, running: false, remain: 15 * 60000, endsAt: 0, warned: -1 },
@@ -130,7 +132,10 @@
       if (!raw) return null;
       const s = JSON.parse(raw);
       const d = defaultState();
-      return Object.assign(d, s, { game: Object.assign(d.game, s.game), prefs: Object.assign(d.prefs, s.prefs) });
+      const m = Object.assign(d, s, { game: Object.assign(d.game, s.game), prefs: Object.assign(d.prefs, s.prefs) });
+      // 게임 시작 전이고 직접 편집한 구조가 아니면 최신 프리셋으로 다시 만든다
+      if (!m.started && m.game.preset !== 'custom') m.game.levels = buildLevels(m.game.preset, m.game.buyIn.chips);
+      return m;
     } catch (e) { return null; }
   }
   let S = load() || defaultState();
@@ -244,7 +249,8 @@
       [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.4, 'triangle', 0.32));
       [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.75 + i * 0.13, 0.4, 'triangle', 0.32));
     },
-    brk() { [784, 659, 523].forEach((f, i) => tone(f, i * 0.22, 0.55, 'sine', 0.32)); }
+    brk() { [784, 659, 523, 392].forEach((f, i) => tone(f, i * 0.3, 0.7, 'sine', 0.34)); },
+    resume() { [392, 523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.22, 'square', 0.16)); [784, 1047].forEach((f, i) => tone(f, 0.5 + i * 0.12, 0.35, 'square', 0.16)); }
   };
   function vibrate(pattern) {
     if (S.prefs.vibrate && navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) { /* 미지원 */ } }
@@ -296,8 +302,10 @@
         save();
         if (S.prefs.sound) SND.warn();
         vibrate([200, 100, 200]);
+        if (curLevel().brk) toast('휴식 1분 남았어요 · 곧 게임 재개');
       }
       if (rem <= 0) {
+        const wasBrk = !!curLevel().brk;
         let moved = false;
         while (rem <= 0) {
           if (c.level >= levels().length - 1) { c.running = false; c.remain = 0; break; }
@@ -309,7 +317,7 @@
         c.warned = rem <= 60000 ? c.level : -1;
         save();
         render();
-        if (moved) announceLevel();
+        if (moved) announceLevel(wasBrk);
         else toast('마지막 레벨이 끝났어요. 설정에서 레벨을 추가하세요', 'warn');
       }
     }
@@ -332,20 +340,26 @@
       el.textContent = L.brk ? '휴식 중' : nb == null ? '남은 휴식 없음' : '다음 휴식까지 ' + fmtTime(nb);
     });
   }
-  function announceLevel() {
+  function announceLevel(fromBreak) {
     const L = curLevel();
-    if (S.prefs.sound) (L.brk ? SND.brk : SND.level)();
-    vibrate(L.brk ? [400, 200, 400] : [300, 120, 300, 120, 600]);
+    const resume = !L.brk && fromBreak;   // 휴식이 끝나고 게임 재개
+    if (S.prefs.sound) (L.brk ? SND.brk : resume ? SND.resume : SND.level)();
+    vibrate(L.brk ? [700, 300, 700] : resume ? [150, 80, 150, 80, 150, 80, 500] : [300, 120, 300, 120, 600]);
     // 화면을 가리지 않는 배너: 터치는 아래 화면으로 그대로 전달되고 6초 뒤 저절로 사라진다
     const nx = nextBlindLevel();
     $$('.announce').forEach((x) => x.remove());
     const el = document.createElement('div');
-    el.className = 'announce' + (L.brk ? ' brk' : '');
+    el.className = 'announce' + (L.brk ? ' brk' : resume ? ' resume' : '');
     el.setAttribute('role', 'status');
-    el.innerHTML = `<div class="announce-card">
-      <div class="a-text"><div class="a-k">${L.brk ? 'BREAK' : 'LEVEL ' + levelNo(S.clock.level)}</div>
-        <div class="a-s">${L.brk ? (nx ? `휴식 후 ${fmt(nx.sb)} / ${fmt(nx.bb)}` : '잠시 쉬어가요') : '블라인드 업 · 다음 핸드부터'}</div></div>
-      <div class="a-v">${L.brk ? '휴식 ' + L.min + '분' : fmt(L.sb) + ' / ' + fmt(L.bb)}</div></div>`;
+    const no = levelNo(S.clock.level);
+    el.innerHTML = L.brk
+      ? `<div class="announce-card"><span class="a-ico">${icon('coffee')}</span>
+          <div class="a-text"><div class="a-k">BREAK TIME</div><div class="a-s">${nx ? `휴식 후 ${fmt(nx.sb)} / ${fmt(nx.bb)}` : '잠시 쉬어가요'}</div></div>
+          <div class="a-v">휴식 ${L.min}분</div></div>`
+      : `<div class="announce-card">${resume ? `<span class="a-ico">${icon('play')}</span>` : ''}
+          <div class="a-text"><div class="a-k">${resume ? '휴식 끝 · LEVEL ' + no : 'LEVEL ' + no}</div>
+            <div class="a-s">${resume ? '자리로 돌아와 게임을 다시 시작하세요' : '블라인드 업 · 다음 핸드부터'}</div></div>
+          <div class="a-v">${fmt(L.sb)} / ${fmt(L.bb)}</div></div>`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 6200);
   }
@@ -504,7 +518,7 @@
     const editor = renderLevelEditor();
     return `<h2 class="sec-title">블라인드 구조</h2>
       <div class="preset-grid">${presets}</div>
-      <p class="hint" style="margin-top:8px">프리셋은 시작 칩에 맞춰 자동으로 계산돼요 (시작 약 ${PRESETS.standard.depth}BB 기준).</p>
+      <p class="hint" style="margin-top:8px">홀덤펍·대회에서 많이 쓰는 구조예요 — 시작 칩에 맞춰 약 100BB로 시작하고, 1시간마다 10분 휴식이 들어가요.</p>
       ${structSummary()}
       ${inSettings ? editor : `<details class="struct-details" ${UI.structOpen ? 'open' : ''}><summary>레벨 자세히 보기 · 편집 ›</summary>${editor}</details>`}`;
   }
@@ -514,7 +528,7 @@
       const cur = S.started && i === S.clock.level ? 'cur' : '';
       const del = `<button class="lv-del" data-action="lv-del" data-i="${i}" aria-label="삭제">${icon('x')}</button>`;
       const num = (k) => `<input class="input" type="number" inputmode="numeric" min="1" data-lv="${i}" data-k="${k}" value="${l[k]}">`;
-      if (l.brk) return `<div class="lv-row brk ${cur}"><span class="lv-no" style="color:var(--blue)">·</span><span class="brk-label">${icon('coffee')} 휴식</span>${num('min')}${del}</div>`;
+      if (l.brk) return `<div class="lv-row brk ${cur}"><span class="lv-no lv-drag" data-i="${i}" aria-label="끌어서 휴식 위치 옮기기">${icon('grip')}</span><span class="brk-label">${icon('coffee')} 휴식</span>${num('min')}${del}</div>`;
       no++;
       return `<div class="lv-row ${cur}"><span class="lv-no">${no}</span>${num('sb')}${num('bb')}${num('min')}${del}</div>`;
     }).join('');
@@ -523,7 +537,8 @@
         <button class="btn btn-sm" data-action="lv-add">${icon('plus')} 레벨 추가</button>
         <button class="btn btn-sm" data-action="lv-add-break">${icon('coffee')} 휴식 추가</button>
         <button class="btn btn-sm btn-ghost" data-action="lv-bulk">레벨 시간 일괄 변경</button>
-      </div>`;
+      </div>
+      <p class="hint" style="margin-top:10px">휴식 줄 왼쪽의 <b>⠿</b> 를 위아래로 끌면 휴식 위치를 옮길 수 있어요.</p>`;
   }
   function renderCashBlinds() {
     const c = S.game.cash;
@@ -604,7 +619,8 @@
         <div class="clock-top"><span class="game-name">${esc(S.game.name || '토너먼트')}</span>
           <button class="btn btn-icon sm btn-ghost" data-action="fullscreen" aria-label="전체 화면">${icon('full')}</button></div>
         ${!c.running ? '<div class="paused-badge">일시정지</div>' : ''}
-        <div class="lvl-label">${brk ? 'BREAK' : 'LEVEL ' + levelNo(c.level)}</div>
+        ${brk ? `<div class="break-ico">${icon('coffee')}</div>` : ''}
+        <div class="lvl-label">${brk ? 'BREAK TIME · 휴식 중' : 'LEVEL ' + levelNo(c.level)}</div>
         <div class="time ${c.running ? '' : 'paused'}" data-clock="time">${fmtTime(clockRemain())}</div>
         <div class="progress"><i data-clock="bar"></i></div>
         ${brk
@@ -671,7 +687,7 @@
     let clock;
     if (isT()) {
       const L = curLevel(), bl = blindsAt(S.clock.level), run = S.clock.running;
-      clock = `<button class="mini-clock ${run ? '' : 'paused'}" data-action="clock-toggle" aria-label="타이머 ${run ? '일시정지' : '시작'}">
+      clock = `<button class="mini-clock ${run ? '' : 'paused'} ${L.brk ? 'brk' : ''}" data-action="clock-toggle" aria-label="타이머 ${run ? '일시정지' : '시작'}">
         <span class="mc-lv">${L.brk ? '휴식' : 'LV ' + levelNo(S.clock.level)}</span>
         <span class="mc-bl">${fmt(bl.sb)}/${fmt(bl.bb)}</span>
         <span class="mc-time" data-clock="time">${fmtTime(clockRemain())}</span>
@@ -685,6 +701,12 @@
   }
   function renderCenter() {
     const h = S.hand;
+    if (!h && isT() && curLevel().brk) {
+      const nx = nextBlindLevel();
+      return `<div class="table-center center-break"><div class="break-ico">${icon('coffee')}</div>
+        <div class="pot-label">BREAK TIME</div><div class="center-blinds" data-clock="time">${fmtTime(clockRemain())}</div>
+        <div class="pot-sub">${nx ? `휴식 후 ${fmt(nx.sb)} / ${fmt(nx.bb)}` : '휴식 중'}</div></div>`;
+    }
     if (!h) {
       const bl = currentBlinds();
       return `<div class="table-center"><div class="center-logo">♠</div>
@@ -1799,6 +1821,45 @@
     if (e.target.matches && e.target.matches('details.struct-details')) UI.structOpen = e.target.open;
   }, true);
   document.addEventListener('pointerdown', () => { audio(); keepAwake(); }, { passive: true });
+
+  // 휴식 줄 끌어서 옮기기 (터치·마우스 공통)
+  let drag = null;
+  document.addEventListener('pointerdown', (e) => {
+    const handle = e.target.closest('.lv-drag');
+    if (!handle) return;
+    e.preventDefault();
+    const row = handle.closest('.lv-row');
+    const rows = $$('.lv-row', row.parentElement);
+    drag = { row, rows, from: +handle.dataset.i, to: +handle.dataset.i, startY: e.clientY, mids: rows.map((r) => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; }) };
+    row.classList.add('dragging');
+    if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    drag.row.style.transform = `translateY(${e.clientY - drag.startY}px)`;
+    // 끌고 있는 줄을 뺀 나머지 중 손가락보다 위에 있는 줄 수 = 들어갈 위치
+    drag.to = drag.mids.filter((m, i) => i !== drag.from && m < e.clientY).length;
+    const others = drag.rows.filter((r) => r !== drag.row);
+    drag.rows.forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+    if (drag.to < others.length) others[drag.to].classList.add('drop-before');
+    else if (others.length) others[others.length - 1].classList.add('drop-after');
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const { from, to } = drag;
+    drag = null;
+    if (from !== to) {
+      const L = levels(), cur = L[S.clock.level];
+      const [item] = L.splice(from, 1);
+      L.splice(to, 0, item);
+      if (S.started) S.clock.level = Math.max(0, L.indexOf(cur));
+      S.game.preset = 'custom';
+      save();
+    }
+    render();
+  };
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); tick(); } });
   window.addEventListener('resize', () => { if (S.started && S.screen === 'table') layoutTable(); });
   // 화면 회전으로 휴대폰 ↔ 태블릿 배치가 바뀌면 패널을 다시 그린다
