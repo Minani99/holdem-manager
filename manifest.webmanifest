@@ -1,7 +1,7 @@
 {
   "name": "홀덤 매니저",
   "short_name": "홀덤",
-  "description": "홈게임용 블라인드 타이머 · 핸드 진행 · 사이드팟 자동 계산",
+  "description": "친선 게임용 블라인드 타이머 · 핸드 진행 · 사이드팟 자동 계산",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

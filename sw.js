@@ -1,5 +1,5 @@
 // 오프라인 지원: 네트워크 우선, 실패하면 캐시
-const CACHE = 'holdem-manager-v2';
+const CACHE = 'holdem-manager-v3';
 const ASSETS = ['./', './index.html', './css/style.css', './js/engine.js', './js/app.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {

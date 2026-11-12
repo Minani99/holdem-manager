@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="홈게임용 홀덤 매니저 — 블라인드 타이머, 핸드 진행, 사이드팟 자동 계산">
+  <meta name="description" content="친선 게임용 홀덤 매니저 — 블라인드 타이머, 핸드 진행, 사이드팟 자동 계산">
   <title>홀덤 매니저</title>
   <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KICA8ZGVmcz4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iZiIgY3g9IjUwJSIgY3k9IjQwJSIgcj0iNjUlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjU5NzVmIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iLjU1IiBzdG9wLWNvbG9yPSIjMTg3NDQ4Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzBjNGEyZiIvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTIiIGZpbGw9IiMwZDEyMTgiLz4KICA8Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjE5NiIgZmlsbD0iIzJiMWQxNCIvPgogIDxjaXJjbGUgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMTg0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmNmMzNTAiIHN0cm9rZS1vcGFjaXR5PSIuNDUiIHN0cm9rZS13aWR0aD0iNCIvPgogIDxjaXJjbGUgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMTcwIiBmaWxsPSJ1cmwoI2YpIi8+CiAgPHBhdGggZmlsbD0iI2Y2YzM1MCIgZD0iTTI1NiAxMzRjLTMwIDQ0LTExMCA4Ni0xMTAgMTQ0IDAgMzQgMjYgNTggNTggNTggMjAgMCAzNi05IDQ0LTIyLTQgMzAtMTYgNTAtMzYgNjRoODhjLTIwLTE0LTMyLTM0LTM2LTY0IDggMTMgMjQgMjIgNDQgMjIgMzIgMCA1OC0yNCA1OC01OCAwLTU4LTgwLTEwMC0xMTAtMTQ0eiIvPgo8L3N2Zz4K">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -1246,7 +1246,11 @@ details.struct-details summary::-webkit-details-marker { display: none; }
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   const fmt = (n) => (Math.round(n) || 0).toLocaleString('ko-KR');
-  const won = (n) => fmt(n) + '원';
+  // 금액 표시: 기본은 꺼짐(포인트 'P'). 설정에서 켜면 '원'과 상금 · 손익 · 정산 용어를 써요.
+  const money = () => !!(S && S.prefs && S.prefs.money);
+  const unit = () => (money() ? '원' : 'P');
+  const won = (n) => fmt(n) + unit();
+  const W = (withMoney, plain) => (money() ? withMoney : plain);
   const signed = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const uid = () => Math.random().toString(36).slice(2, 10);
@@ -1349,7 +1353,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
         startBB: 200,
         levels: buildLevels('standard', 20000, 200)
       },
-      prefs: { sound: true, vibrate: true, warn: true, wake: true },
+      prefs: { sound: true, vibrate: true, warn: true, wake: true, money: false },
       clock: { level: 0, running: false, remain: 15 * 60000, endsAt: 0, warned: -1 },
       startedAt: 0,
       players: [],
@@ -1456,7 +1460,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
   const cashNet = (p) => Math.round(cashValue(p) - p.invested);
   function ratioText() {
     const g = S.game, per = g.buyIn.won / Math.max(1, g.buyIn.chips);
-    return `${won(g.buyIn.won)} → <b>${fmt(g.buyIn.chips)}칩</b> · 1칩 = ${Number(per.toFixed(2)).toLocaleString('ko-KR')}원`;
+    return `${won(g.buyIn.won)} → <b>${fmt(g.buyIn.chips)}칩</b> · 1칩 = ${Number(per.toFixed(2)).toLocaleString('ko-KR')}${unit()}`;
   }
 
   // ---------------------------------------------------------------- 사운드 / 진동 / 화면 유지
@@ -1743,20 +1747,20 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     const lockCash = !t && S.started;
     return `<h2 class="sec-title">${t ? '바이인 · 리바이 · 애드온' : '바이인 · 칩 가치'}</h2>
       <div class="grid-2">
-        ${numField('바이인 금액 (원)', 'game.buyIn.won', g.buyIn.won, lockCash ? 'disabled' : '')}
+        ${numField(`바이인 ${W('금액', '포인트')} (${unit()})`, 'game.buyIn.won', g.buyIn.won, lockCash ? 'disabled' : '')}
         ${numField(t ? '시작 칩' : '바이인 금액당 칩', 'game.buyIn.chips', g.buyIn.chips, lockCash ? 'disabled' : '')}
       </div>
       <p class="hint" style="margin-top:8px" data-derived="ratio">${ratioText()}</p>
-      ${lockCash ? '<p class="hint" style="margin-top:4px">게임 중에는 칩 가치를 바꿀 수 없어요 (정산이 틀어지지 않도록).</p>' : ''}
+      ${lockCash ? '<p class="hint" style="margin-top:4px">게임 중에는 칩 가치를 바꿀 수 없어요 (계산이 틀어지지 않도록).</p>' : ''}
       ${t ? `<div class="divider"></div>
         ${toggleRow('game.rebuy.on', '리바이 허용', '칩을 모두 잃으면 다시 구매할 수 있어요', g.rebuy.on, true)}
         ${g.rebuy.on ? `<div class="sub-fields grid-3">
-          ${numField('리바이 금액 (원)', 'game.rebuy.won', g.rebuy.won)}
+          ${numField(`리바이 ${W('금액', '포인트')} (${unit()})`, 'game.rebuy.won', g.rebuy.won)}
           ${numField('리바이 칩', 'game.rebuy.chips', g.rebuy.chips)}
           ${numField('가능 레벨 (0=계속)', 'game.rebuy.until', g.rebuy.until)}</div>` : ''}
         ${toggleRow('game.addon.on', '애드온 허용', '정해진 금액으로 칩을 추가 구매해요', g.addon.on, true)}
         ${g.addon.on ? `<div class="sub-fields grid-2">
-          ${numField('애드온 금액 (원)', 'game.addon.won', g.addon.won)}
+          ${numField(`애드온 ${W('금액', '포인트')} (${unit()})`, 'game.addon.won', g.addon.won)}
           ${numField('애드온 칩', 'game.addon.chips', g.addon.chips)}</div>` : ''}`
         : '<p class="hint" style="margin-top:6px">캐시 게임은 추가 바이인을 언제든 할 수 있고, 금액도 사람마다 다르게 정할 수 있어요.</p>'}`;
   }
@@ -1868,7 +1872,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     return `
       <div class="stat"><div class="k">남은 인원</div><div class="v">${alive.length}<small>/ ${S.players.length}</small></div><div class="s">핸드 #${S.handNo}</div></div>
       <div class="stat"><div class="k">평균 스택</div><div class="v">${fmt(avg)}</div><div class="s">${(avg / bb).toFixed(1)} BB</div></div>
-      <div class="stat"><div class="k">총 상금</div><div class="v">${won(sum(S.players, (p) => p.invested))}</div><div class="s">총 칩 ${fmt(chips)}</div></div>
+      <div class="stat"><div class="k">${W('총 상금', '총 바이인')}</div><div class="v">${won(sum(S.players, (p) => p.invested))}</div><div class="s">총 칩 ${fmt(chips)}</div></div>
       <div class="stat"><div class="k">리바이 · 애드온</div><div class="v">${sum(S.players, (p) => p.rebuys)} · ${sum(S.players, (p) => p.addons)}</div><div class="s">${rebuyTxt}</div></div>
       <div class="stat wide"><div class="k">경과 시간</div><div class="v" data-clock="elapsed">-</div></div>`;
   }
@@ -1922,7 +1926,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       const n = cashNet(p);
       return `<div class="result-row"><span class="avatar sm" style="--c:${p.color}">${esc(initial(p.name))}</span>
         <span class="rn">${esc(p.name)}<small>${p.status === 'out' ? '퇴장' : fmt(p.stack) + '칩'} · 바이인 ${won(p.invested)}</small></span>
-        <span class="rv ${n > 0 ? 'plus' : n < 0 ? 'minus' : ''}">${signed(n)}원</span></div>`;
+        <span class="rv ${n > 0 ? 'plus' : n < 0 ? 'minus' : ''}">${signed(n)}${unit()}</span></div>`;
     }).join('');
     return `<div class="clock-screen">
       <section class="clock-main">
@@ -1941,7 +1945,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
           <div class="stat"><div class="k">총 바이인</div><div class="v">${won(sum(S.players, (p) => p.invested))}</div><div class="s">추가 바이인 ${sum(S.players, (p) => p.rebuys)}회</div></div>
           <div class="stat"><div class="k">테이블 칩</div><div class="v">${fmt(sum(alive, (p) => p.stack))}</div><div class="s">${ratioText().replace(/<[^>]+>/g, '')}</div></div>
         </div>
-        <div class="card"><div class="card-title">현재 손익</div><div class="result-list" style="margin-top:0">${rows || '<div class="empty-note">플레이어가 없어요</div>'}</div></div>
+        <div class="card"><div class="card-title">${W('현재 손익', '현재 득실')}</div><div class="result-list" style="margin-top:0">${rows || '<div class="empty-note">플레이어가 없어요</div>'}</div></div>
       </aside>
     </div>`;
   }
@@ -2279,7 +2283,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     } else {
       const n = cashNet(p);
       sub = `바이인 ${won(p.invested)}${p.rebuys ? ` (추가 ${p.rebuys}회)` : ''}`;
-      right = `<b>${p.status === 'out' ? '퇴장' : fmt(p.stack)}</b><small class="${n > 0 ? 'plus' : n < 0 ? 'minus' : ''}">${signed(n)}원</small>`;
+      right = `<b>${p.status === 'out' ? '퇴장' : fmt(p.stack)}</b><small class="${n > 0 ? 'plus' : n < 0 ? 'minus' : ''}">${signed(n)}${unit()}</small>`;
     }
     return `<button class="pcard ${p.status === 'out' ? 'out' : ''}" data-action="player-sheet" data-id="${p.id}">
       <span class="seat-no">${p.seat || '–'}</span>
@@ -2295,7 +2299,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     const stats = t
       ? `<div class="stat"><div class="k">남은 인원</div><div class="v">${alive.length}<small>/ ${S.players.length}</small></div></div>
          <div class="stat"><div class="k">평균 스택</div><div class="v">${fmt(alive.length ? chips / alive.length : 0)}</div></div>
-         <div class="stat"><div class="k">총 상금</div><div class="v">${won(sum(S.players, (p) => p.invested))}</div></div>
+         <div class="stat"><div class="k">${W('총 상금', '총 바이인')}</div><div class="v">${won(sum(S.players, (p) => p.invested))}</div></div>
          <div class="stat"><div class="k">총 칩</div><div class="v">${fmt(chips)}</div></div>`
       : `<div class="stat"><div class="k">앉은 인원</div><div class="v">${alive.length}<small>/ ${MAX_SEATS}</small></div></div>
          <div class="stat"><div class="k">테이블 칩</div><div class="v">${fmt(chips)}</div></div>
@@ -2308,7 +2312,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       <div class="stat-row">${stats}</div>
       <div class="player-grid">${alive.map(pcard).join('') || '<div class="empty-note">플레이어를 추가하세요</div>'}</div>
       ${out.length ? `<div class="section-label">${t ? '탈락' : '퇴장'} · ${out.length}명</div><div class="player-grid">${out.map(pcard).join('')}</div>` : ''}
-      <p class="hint" style="margin-top:18px">플레이어를 누르면 ${t ? '리바이 · 애드온 · 칩 수정 · 탈락 처리' : '추가 바이인 · 칩 수정 · 자리 비움 · 정산'}를 할 수 있어요.</p>
+      <p class="hint" style="margin-top:18px">플레이어를 누르면 ${t ? '리바이 · 애드온 · 칩 수정 · 탈락 처리' : `추가 바이인 · 칩 수정 · 자리 비움 · ${W('정산', '결과 확인')}`}를 할 수 있어요.</p>
     </div>`;
   }
 
@@ -2329,6 +2333,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
         ${t ? toggleRow('prefs.sound', '레벨업 알림음', '블라인드가 오를 때 소리로 알려줘요', S.prefs.sound) : ''}
         ${t ? toggleRow('prefs.vibrate', '진동', '블라인드업 · 휴식 때 진동 (안드로이드)', S.prefs.vibrate) : ''}
         ${toggleRow('prefs.wake', '화면 꺼짐 방지', '게임 중에는 화면이 자동으로 꺼지지 않아요', S.prefs.wake)}
+        ${toggleRow('prefs.money', '금액(원) 단위로 표시', '끄면 포인트(P)로 표시해요 · 칩 계산은 똑같아요', S.prefs.money, true)}
         <div class="row wrap" style="margin-top:12px">
           ${t ? `<button class="btn btn-sm" data-action="test-sound">${icon('sound')} 알림 테스트</button>` : ''}
           <button class="btn btn-sm" data-action="fullscreen">${icon('full')} 전체 화면</button></div>
@@ -2336,7 +2341,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       <section class="card">
         <h2 class="sec-title">게임 관리</h2>
         <div class="row wrap">
-          <button class="btn" data-action="results">${icon('trophy')} ${t ? '순위 보기' : '정산 보기'}</button>
+          <button class="btn" data-action="results">${icon('trophy')} ${t ? '순위 보기' : W('정산 보기', '결과 보기')}</button>
           <button class="btn btn-danger-ghost" data-action="new-game">새 게임 시작</button></div>
         <p class="hint" style="margin-top:12px">모든 기록은 이 기기의 브라우저에 자동 저장돼요. 앱을 닫았다 열어도 이어서 진행할 수 있어요.</p>
       </section>
@@ -2363,7 +2368,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       <div class="progress f-progress"><i data-clock="bar"></i></div>
       <div class="f-blinds">${brk ? (nx ? '<small>휴식 후</small> ' + fmt(nx.sb) + ' / ' + fmt(nx.bb) : '휴식 중') : fmt(bl.sb) + ' / ' + fmt(bl.bb)}</div>
       <div class="f-next">${!brk && nx ? `다음 <b>${fmt(nx.sb)} / ${fmt(nx.bb)}</b> · ` : ''}<span data-clock="nextbreak"></span></div>
-      ${S.players.length ? `<div class="f-stats"><span>남은 인원 <b>${alive.length}/${S.players.length}</b></span><span>평균 스택 <b>${fmt(alive.length ? chips / alive.length : 0)}</b></span><span>총 상금 <b>${won(sum(S.players, (p) => p.invested))}</b></span></div>` : ''}
+      ${S.players.length ? `<div class="f-stats"><span>남은 인원 <b>${alive.length}/${S.players.length}</b></span><span>평균 스택 <b>${fmt(alive.length ? chips / alive.length : 0)}</b></span><span>${W('총 상금', '총 바이인')} <b>${won(sum(S.players, (p) => p.invested))}</b></span></div>` : ''}
       <button class="f-play" data-action="clock-toggle" aria-label="${c.running ? '일시정지' : '시작'}">${icon(c.running ? 'pause' : 'play')}</button>
     </div>`;
   }
@@ -2525,7 +2530,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
          <button class="btn btn-gold" data-action="bust-topup">추가 바이인</button>`;
     openModal(`<div class="m-head"><span class="avatar lg" style="--c:${p.color}">${esc(initial(p.name))}</span>
       <div><div class="m-name">${esc(p.name)}</div><div class="m-sub">칩을 모두 잃었어요</div></div></div>
-      <p class="m-body">${isT() ? `리바이하면 ${fmt(g.rebuy.chips)}칩을 받고 계속 플레이해요.` : '추가 바이인을 하거나, 잠시 빠지거나, 정산하고 나갈 수 있어요.'}</p>
+      <p class="m-body">${isT() ? `리바이하면 ${fmt(g.rebuy.chips)}칩을 받고 계속 플레이해요.` : `추가 바이인을 하거나, 잠시 빠지거나, ${W('정산하고', '결과를 남기고')} 나갈 수 있어요.`}</p>
       <div class="m-actions">${actions}</div>`, { locked: true });
   }
   function checkTournamentEnd() {
@@ -2547,19 +2552,19 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       const champ = S.finished ? list[0] : null;
       head = champ
         ? `<div class="trophy">${icon('trophy')}</div><h3 class="m-title" style="text-align:center">${esc(champ.name)} 우승!</h3>
-           <p class="m-body" style="text-align:center">총 상금 ${won(sum(S.players, (p) => p.invested))} · ${S.handNo}핸드</p>`
-        : `<h3 class="m-title">현재 순위</h3><p class="m-body">총 상금 ${won(sum(S.players, (p) => p.invested))} · 남은 칩 순서</p>`;
+           <p class="m-body" style="text-align:center">${W('총 상금', '총 바이인')} ${won(sum(S.players, (p) => p.invested))} · ${S.handNo}핸드</p>`
+        : `<h3 class="m-title">현재 순위</h3><p class="m-body">${W('총 상금', '총 바이인')} ${won(sum(S.players, (p) => p.invested))} · 남은 칩 순서</p>`;
       rows = list.map((p, i) => `<div class="result-row ${i === 0 && champ ? 'first' : ''}"><span class="rk">${i + 1}</span>
         <span class="rn">${esc(p.name)}<small>${p.status === 'out' ? '탈락' : fmt(p.stack) + '칩'}</small></span>
         <span class="rv">${won(p.invested)}<small>바이인 합계</small></span></div>`).join('');
     } else {
       const list = S.players.slice().sort((a, b) => cashNet(b) - cashNet(a));
-      head = `<h3 class="m-title">정산</h3><p class="m-body">남은 칩을 돈으로 바꿨을 때의 손익이에요 (${ratioText().replace(/<[^>]+>/g, '').split(' · ')[1]}).</p>`;
+      head = `<h3 class="m-title">${W('정산', '결과')}</h3><p class="m-body">${W('남은 칩을 돈으로 바꿨을 때의 손익이에요', '남은 칩을 포인트로 환산한 득실이에요')} (${ratioText().replace(/<[^>]+>/g, '').split(' · ')[1]}).</p>`;
       rows = list.map((p, i) => {
         const n = cashNet(p);
         return `<div class="result-row"><span class="rk">${i + 1}</span>
           <span class="rn">${esc(p.name)}<small>바이인 ${won(p.invested)} → ${won(Math.round(cashValue(p)))}</small></span>
-          <span class="rv ${n > 0 ? 'plus' : n < 0 ? 'minus' : ''}">${signed(n)}원</span></div>`;
+          <span class="rv ${n > 0 ? 'plus' : n < 0 ? 'minus' : ''}">${signed(n)}${unit()}</span></div>`;
       }).join('');
     }
     openModal(`${head}<div class="result-list">${rows}</div>
@@ -2582,7 +2587,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       tiles.push(tile('p-seat', '자리 이동', p.seat ? p.seat + '번 자리' : '자리 없음', '', locked));
       tiles.push(tile('p-rename', '이름 변경', esc(p.name)));
       if (!t) tiles.push(tile('p-away', p.status === 'away' ? '자리 복귀' : '자리 비움', p.status === 'away' ? '다음 핸드부터 참여' : '핸드에서 잠시 빠지기', '', locked));
-      tiles.push(t ? tile('p-out', '탈락 처리', '순위를 기록하고 자리에서 빼기', 'danger', locked) : tile('p-leave', '정산 후 퇴장', `남은 칩 ≈ ${won(Math.round(p.stack / chipRatio()))}`, 'danger', locked));
+      tiles.push(t ? tile('p-out', '탈락 처리', '순위를 기록하고 자리에서 빼기', 'danger', locked) : tile('p-leave', W('정산 후 퇴장', '결과 기록 후 퇴장'), `남은 칩 ≈ ${won(Math.round(p.stack / chipRatio()))}`, 'danger', locked));
     } else {
       if (t && g.rebuy.on && rebuyOpen()) tiles.push(tile('p-reenter', '재참가 (리바이)', `+${fmt(g.rebuy.chips)}칩 · ${won(g.rebuy.won)}`, 'gold'));
       tiles.push(tile('p-restore', t ? '탈락 취소' : '다시 참가', t ? '잘못 처리한 탈락 되돌리기' : '새로 바이인하고 앉기'));
@@ -2590,7 +2595,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     }
     if (!locked) tiles.push(tile('p-delete', '목록에서 삭제', '잘못 추가한 경우', 'danger'));
     const sub = p.status === 'out' ? (t ? `${standings().indexOf(p) + 1}위 · 탈락` : '퇴장') : p.seat ? `${p.seat}번 자리${p.status === 'away' ? ' · 자리 비움' : ''}` : '자리 없음';
-    const stackSub = t ? `${won(p.invested)} 투자` : `${signed(cashNet(p))}원`;
+    const stackSub = t ? `${won(p.invested)} 투자` : `${signed(cashNet(p))}${unit()}`;
     openModal(`<div class="m-head"><span class="avatar lg" style="--c:${p.color}">${esc(initial(p.name))}</span>
         <div><div class="m-name">${esc(p.name)}</div><div class="m-sub">${sub}</div></div>
         <div class="m-stack"><b>${fmt(p.stack)}</b><small>${stackSub}</small></div></div>
@@ -2619,7 +2624,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
         <div class="field"><label>이름</label><input class="input" id="np-name" maxlength="10" placeholder="이름" autofocus></div>
         <div class="field"><label>자리</label><div class="chips-row" style="margin-top:0">${free.map((n) => `<button class="chip-opt ${n === free[0] ? 'on' : ''}" data-action="np-seat" data-n="${n}">${n}번</button>`).join('')}</div></div>
         ${t ? `<p class="hint">바이인 <b>${won(g.buyIn.won)}</b> → <b>${fmt(g.buyIn.chips)}칩</b>${S.handNo > 0 ? ' (레이트 등록)' : ''}</p>`
-          : `<div class="field"><label>바이인 금액 (원)</label><input class="input" id="np-won" type="number" inputmode="numeric" value="${g.buyIn.won}">
+          : `<div class="field"><label>바이인 ${W('금액', '포인트')} (${unit()})</label><input class="input" id="np-won" type="number" inputmode="numeric" value="${g.buyIn.won}">
              <div class="chips-row">${[10000, 20000, 30000, 50000].map((v) => `<button class="chip-opt" data-action="np-won" data-v="${v}">${fmtMan(v)}</button>`).join('')}</div>
              <p class="hint" id="np-chips">→ ${fmt(g.buyIn.won * chipRatio())}칩</p></div>`}
       </div>
@@ -2846,7 +2851,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
     'bust-out'() { const p = player(UI.sheetId); eliminate(p); closeModal(); save(); render(); nextBust(); },
     'bust-rebuy'() { const p = player(UI.sheetId); addRebuy(p); closeModal(); save(); render(); toast(`${p.name} 리바이 +${fmt(S.game.rebuy.chips)}칩`, 'ok'); nextBust(); },
     'bust-away'() { const p = player(UI.sheetId); p.status = 'away'; closeModal(); save(); render(); nextBust(); },
-    'bust-leave'() { const p = player(UI.sheetId); cashLeave(p); closeModal(); save(); render(); toast(`${p.name} 퇴장 · ${signed(cashNet(p))}원`); nextBust(); },
+    'bust-leave'() { const p = player(UI.sheetId); cashLeave(p); closeModal(); save(); render(); toast(`${p.name} 퇴장 · ${signed(cashNet(p))}${unit()}`); nextBust(); },
     async 'bust-topup'() {
       const p = player(UI.sheetId);
       closeModal();
@@ -2954,7 +2959,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       const p = player(UI.sheetId);
       closeModal();
       const value = Math.round(p.stack / chipRatio());
-      if (!(await confirmBox({ title: `${p.name} 정산 후 퇴장`, body: `남은 칩 ${fmt(p.stack)}개 = <b>${won(value)}</b><br>총 바이인 ${won(p.invested)} → 손익 <b>${signed(Math.round((p.cashout || 0) + value - p.invested))}원</b>`, ok: '퇴장' }))) return;
+      if (!(await confirmBox({ title: `${p.name} ${W('정산 후 퇴장', '결과 기록 후 퇴장')}`, body: `남은 칩 ${fmt(p.stack)}개 = <b>${won(value)}</b><br>총 바이인 ${won(p.invested)} → ${W('손익', '득실')} <b>${signed(Math.round((p.cashout || 0) + value - p.invested))}${unit()}</b>`, ok: '퇴장' }))) return;
       cashLeave(p);
       save();
       render();
@@ -3019,7 +3024,7 @@ details.struct-details summary::-webkit-details-marker { display: none; }
   function askTopUp(p) {
     const base = S.game.buyIn.won;
     return promptNumber({
-      title: `${p.name} 추가 바이인`, body: '바이인 금액(원)을 입력하세요', value: base, min: 1,
+      title: `${p.name} 추가 바이인`, body: `바이인 ${W('금액', '포인트')}(${unit()})를 입력하세요`, value: base, min: 1,
       quick: [[fmtMan(base), base], [fmtMan(base * 2), base * 2], ['1만', 10000], ['5만', 50000]].filter((q, i, a) => a.findIndex((x) => x[1] === q[1]) === i),
       preview: (w) => (w > 0 ? `→ ${fmt(w * chipRatio())}칩` : ''), ok: '바이인'
     });
