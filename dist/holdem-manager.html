@@ -2119,23 +2119,49 @@ details.struct-details summary::-webkit-details-marker { display: none; }
       el.classList.add('placed');
       pos[el.dataset.id] = pts[i];
     });
+    const center = $('.table-center', area);
+    if (center) center.style.width = Math.max(130, pw >= ph ? pw - sw * 1.7 : pw - sw * 1.75) + 'px';
+    // 가운데 팟 표시 영역 (베팅 칩이 이 위로 올라가지 않게)
+    let box = null;
+    if (center) {
+      // 가운데 영역 자체는 넓게 잡혀 있어서, 실제로 보이는 내용(카드 · 팟 글자)만 합쳐서 쓴다
+      const a = area.getBoundingClientRect();
+      Array.from(center.children).forEach((c) => {
+        const r = c.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        const b = { l: r.left - a.left - 2, t: r.top - a.top - 4, r: r.right - a.left + 2, b: r.bottom - a.top + 10 };
+        box = box ? { l: Math.min(box.l, b.l), t: Math.min(box.t, b.t), r: Math.max(box.r, b.r), b: Math.max(box.b, b.b) } : b;
+      });
+    }
+    const hitsBox = (x, y, bw, bh) => !!box && x + bw / 2 > box.l && x - bw / 2 < box.r && y + bh / 2 > box.t && y - bh / 2 < box.b;
     // 베팅 칩: 좌석에서 테이블 중심선 쪽으로, 좌석 카드와 겹치지 않을 만큼 띄운다
     const horiz = pw >= ph, half = Math.abs(pw - ph) / 2;
+    const placedBets = [];
     $$('.bet', area).forEach((el) => {
       const p = pos[el.dataset.bet];
       if (!p) return;
+      const bw = el.offsetWidth, bh = el.offsetHeight;
       const tx = horiz ? clamp(p[0], cx - half, cx + half) : cx;
       const ty = horiz ? cy : clamp(p[1], cy - half, cy + half);
       const dist = Math.hypot(tx - p[0], ty - p[1]) || 1;
       const ux = (tx - p[0]) / dist, uy = (ty - p[1]) / dist;
-      const reach = Math.abs(ux) * (sw + el.offsetWidth) / 2 + Math.abs(uy) * (sh + el.offsetHeight) / 2 + (uy < 0 ? 18 : 0) + 8;
+      const reach = Math.abs(ux) * (sw + bw) / 2 + Math.abs(uy) * (sh + bh) / 2 + (uy < 0 ? 18 : 0) + 8;
       const d = Math.min(dist * 0.85, reach);
-      el.style.left = p[0] + ux * d + 'px';
-      el.style.top = p[1] + uy * d + 'px';
+      // 후보 자리: 기본(중심 쪽) → 좌석 카드 바로 위/아래. 좁은 화면(휴대폰 세로)에서
+      // 팟 표시나 다른 칩과 겹치지 않는 첫 자리를 고른다.
+      const ax = p[0] + ux * Math.max(0, (sw - bw) / 2);
+      const toward = p[1] > cy ? -1 : 1;
+      const vert = (vy) => [ax, p[1] + vy * ((sh + bh) / 2 + (vy < 0 ? 28 : 24))];
+      const cands = [[p[0] + ux * d, p[1] + uy * d], vert(toward), vert(-toward)];
+      const ok = ([x, y]) => !hitsBox(x, y, bw, bh)
+        && x - bw / 2 >= 0 && x + bw / 2 <= W && y - bh / 2 >= 0 && y + bh / 2 <= H
+        && !placedBets.some((q) => Math.abs(q[0] - x) < (q[2] + bw) / 2 + 2 && Math.abs(q[1] - y) < (q[3] + bh) / 2 + 2);
+      const [x, y] = cands.find(ok) || cands[0];
+      placedBets.push([x, y, bw, bh]);
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
       el.classList.add('placed');
     });
-    const center = $('.table-center', area);
-    if (center) center.style.width = Math.max(130, horiz ? pw - sw * 1.7 : pw - sw * 1.75) + 'px';
   }
 
   // ----- 액션 패널

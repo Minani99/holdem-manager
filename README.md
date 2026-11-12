@@ -27,10 +27,14 @@
 4. 쇼다운이 되면 팟마다 이긴 사람을 선택 → `칩 분배` → `다음 핸드`
 5. 실수했으면 `되돌리기`로 한 단계씩, `핸드 취소`로 핸드 전체를 되돌릴 수 있어요.
 
+## 안드로이드 앱 (플레이스토어)
+`android/` 에 WebView 앱이 있고, 푸시하면 GitHub Actions 가 APK · AAB 를 만들어요. 출시 절차는 [docs/android-release.md](docs/android-release.md), 스토어 문구는 [docs/store-listing.md](docs/store-listing.md).
+
 ## 개발용 명령
 ```bash
 node tools/serve.js        # http://localhost:5173 에서 실행
 node test/engine.test.js   # 베팅 · 사이드팟 계산 테스트
 node tools/build.js        # dist/holdem-manager.html (파일 하나짜리) 만들기
 node tools/make-icons.js   # 앱 아이콘 PNG 다시 만들기
+node tools/build-android.js # 안드로이드 앱에 웹 파일 넣기 (android/app/src/main/assets/www)
 ```
