@@ -1,0 +1,71 @@
+name: Android build
+
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths:
+      - 'android/**'
+      - 'js/**'
+      - 'css/**'
+      - 'index.html'
+      - 'icons/**'
+      - 'tools/build-android.js'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 엔진 테스트
+        run: node test/engine.test.js
+
+      - name: 웹 파일을 앱에 넣기
+        run: node tools/build-android.js
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 업로드 키가 secrets 에 있으면 서명된 AAB 를, 없으면 서명 안 된 AAB 와 테스트용 APK 만 만들어요.
+      - name: 업로드 키 준비
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            echo "HOLDEM_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+            echo "서명 키 사용"
+          else
+            echo "::notice::ANDROID_KEYSTORE_BASE64 secret 이 없어서 AAB 는 서명 없이 만들어요."
+          fi
+
+      - name: 빌드 (테스트용 APK + 스토어용 AAB)
+        working-directory: android
+        env:
+          HOLDEM_VERSION_CODE: ${{ github.run_number }}
+          HOLDEM_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          HOLDEM_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          HOLDEM_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug bundleRelease
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: holdem-manager-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: holdem-manager-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab

@@ -288,11 +288,16 @@
     // 휴식 끝: 밝게 두 번 울리고 마무리
     resume() { bell(880, 0, { decay: 1.1 }); bell(880, 0.18, { decay: 1.1 }); bell(1318.51, 0.4, { decay: 2.6 }); }
   };
+  // 안드로이드 앱(WebView)에서는 MainActivity가 window.HoldemNative 로 진동 · 화면 유지 · 전체 화면을 제공해요.
+  const NATIVE = typeof window.HoldemNative === 'object' && window.HoldemNative ? window.HoldemNative : null;
   function vibrate(pattern) {
-    if (S.prefs.vibrate && navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) { /* 미지원 */ } }
+    if (!S.prefs.vibrate) return;
+    if (NATIVE) { try { NATIVE.vibrate(JSON.stringify([].concat(pattern))); } catch (e) { /* 미지원 */ } return; }
+    if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) { /* 미지원 */ } }
   }
   let wakeLock = null, wakeBusy = false;
   async function keepAwake() {
+    if (NATIVE) { NATIVE.keepAwake(!!(S.started && S.prefs.wake)); return; }
     if (!S.started || !S.prefs.wake || wakeLock || wakeBusy || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
     wakeBusy = true;
     try {
@@ -301,8 +306,9 @@
     } catch (e) { /* 권한 없음 */ }
     wakeBusy = false;
   }
-  function releaseWake() { if (wakeLock) { wakeLock.release(); wakeLock = null; } }
+  function releaseWake() { if (NATIVE) NATIVE.keepAwake(false); if (wakeLock) { wakeLock.release(); wakeLock = null; } }
   function toggleFullscreen() {
+    if (NATIVE) { NATIVE.toggleFullscreen(); return; }
     const d = document;
     if (d.fullscreenElement || d.webkitFullscreenElement) {
       (d.exitFullscreen || d.webkitExitFullscreen).call(d);
@@ -1967,7 +1973,14 @@
 
   render();
   setInterval(tick, 250);
-  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  // 안드로이드 뒤로 가기: 열린 창이 있으면 닫고 true, 없으면 false(앱 종료)를 돌려줘요.
+  window.__holdemBack = () => {
+    if ($('#modal-root').innerHTML.trim()) { if (!(UI.modal && UI.modal.locked)) closeModal(); return true; }
+    if (UI.raiseOpen) { UI.raiseOpen = false; render(); return true; }
+    if (UI.focus) { ACTIONS['focus-off'](); return true; }
+    return false;
+  };
+  if (!NATIVE && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 })();
